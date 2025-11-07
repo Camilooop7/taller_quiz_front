@@ -74,4 +74,18 @@ public class NoticiaController {
 			return new ResponseEntity<>("Error al eliminar la noticia", HttpStatus.NOT_FOUND);
 		}
 	}
+	
+	@Operation(summary = "obtener una notica random", description = "Da una noticia aleatoria de las que se encutran creradas")
+	@ApiResponses(value = { @ApiResponse(responseCode = "200", description = "Noticia obtenida con éxito"),
+			@ApiResponse(responseCode = "404", description = "Error al traer una noticia") })
+	@GetMapping (path = "/obtenrRandom")
+	public ResponseEntity<?> obtenrRandom() {
+	    NoticiaDTO noticiaDTO = noticiaService.random();
+	    
+	    if (noticiaDTO == null) {
+	        return new ResponseEntity<>("No hay noticias disponibles", HttpStatus.NOT_FOUND);
+	    }
+	    
+	    return new ResponseEntity<>(noticiaDTO, HttpStatus.OK);
+	}
 }

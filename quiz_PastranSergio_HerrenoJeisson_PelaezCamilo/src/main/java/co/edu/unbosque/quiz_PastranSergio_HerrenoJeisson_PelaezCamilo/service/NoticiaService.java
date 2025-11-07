@@ -31,6 +31,18 @@ public class NoticiaService implements CRUDOperation<NoticiaDTO> {
 		});
 		return dtoList;
 	}
+	
+	public NoticiaDTO random() {
+		List<Noticia> entityList = noticiaRepository.findAll();
+
+		if (entityList.isEmpty()) {
+			return null;
+		}
+		int randomIndex = (int) (Math.random() * entityList.size());
+		Noticia randomNoticia = entityList.get(randomIndex);
+		NoticiaDTO noticiaDTO = modelMapper.map(randomNoticia, NoticiaDTO.class);
+		return noticiaDTO;
+	}
 
 	@Override
 	public int deleteById(Long id) {
