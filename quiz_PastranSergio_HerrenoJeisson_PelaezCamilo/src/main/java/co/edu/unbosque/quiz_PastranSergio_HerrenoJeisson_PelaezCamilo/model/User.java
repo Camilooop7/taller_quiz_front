@@ -3,11 +3,9 @@ package co.edu.unbosque.quiz_PastranSergio_HerrenoJeisson_PelaezCamilo.model;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -20,289 +18,151 @@ import jakarta.persistence.Table;
 /**
  * Clase que representa un usuario en el sistema. Implementa UserDetails para
  * integrarse con Spring Security.
- * 
- * Esta entidad se almacena en la tabla "useraccount" en la base de datos.
  */
 @Entity
 @Table(name = "usernoticia")
 public class User implements UserDetails {
 
-	/**
-	 * Número de versión para la serialización.
-	 */
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
 
-	/**
-	 * Identificador único del usuario. Se genera automáticamente con estrategia de
-	 * identidad.
-	 */
-	private @Id @GeneratedValue(strategy = GenerationType.IDENTITY) Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-	/**
-	 * Nombre de usuario único en el sistema.
-	 */
-	@Column(unique = true)
-	private String username;
+    @Column(unique = true)
+    private String username;
 
+    private String password;
 
-	private String password;
+    @Enumerated(EnumType.STRING)
+    private Role role;
 
-	/**
-	 * Rol del usuario en el sistema (USER o ADMIN).
-	 */
-	@Enumerated(EnumType.STRING)
-	private Role role;
+    private boolean accountNonExpired;
+    private boolean accountNonLocked;
+    private boolean credentialsNonExpired;
+    private boolean enabled;
 
-	/**
-	 * Indica si la cuenta del usuario no ha expirado.
-	 */
-	private boolean accountNonExpired;
+    public User() {
+        this.accountNonExpired = true;
+        this.accountNonLocked = true;
+        this.credentialsNonExpired = true;
+        this.enabled = true;
+        this.role = Role.VISITANTE;
+    }
 
-	/**
-	 * Indica si la cuenta del usuario no está bloqueada.
-	 */
-	private boolean accountNonLocked;
+    public User(String username, String password) {
+        this();
+        this.username = username;
+        this.password = password;
+    }
 
-	/**
-	 * Indica si las credenciales del usuario no han expirado.
-	 */
-	private boolean credentialsNonExpired;
+    public User(String username, String password, Role role) {
+        this();
+        this.username = username;
+        this.password = password;
+        this.role = role;
+    }
 
-	private boolean enabled;
+    public enum Role {
+        VISITANTE, ADMIN, EDITOR
+    }
 
-	public User() {
-		this.accountNonExpired = true;
-		this.accountNonLocked = true;
-		this.credentialsNonExpired = true;
-		this.enabled = true;
-		this.role = Role.VISITANTE;
-	}
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        // Asegúrate de que el rol se devuelva con el prefijo "ROLE_"
+        return List.of(new SimpleGrantedAuthority("ROLE_" + this.role.name()));
+    }
 
-	public User(String username, String password) {
-		this();
-		this.username = username;
-		this.password = password;
-	}
+    @Override
+    public boolean isAccountNonExpired() {
+        return accountNonExpired;
+    }
 
-	public User(String username, String password, Role rol) {
-		this();
-		this.username = username;
-		this.password = password;
-		this.role = rol;
-	}
+    @Override
+    public boolean isAccountNonLocked() {
+        return accountNonLocked;
+    }
 
-	public enum Role {
-		VISITANTE, ADMIN, EDITOR
-	}
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return credentialsNonExpired;
+    }
 
-	/**
-	 * Obtiene las autoridades (roles) asignadas al usuario. Implementación del
-	 * método de la interfaz UserDetails.
-	 * 
-	 * @return Colección de autoridades del usuario con el prefijo "ROLE_"
-	 */
-	@Override
-	public Collection<? extends GrantedAuthority> getAuthorities() {
-		return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
-	}
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
 
-	/**
-	 * Verifica si la cuenta del usuario no ha expirado. Implementación del método
-	 * de la interfaz UserDetails.
-	 * 
-	 * @return true si la cuenta no ha expirado, false en caso contrario
-	 */
-	@Override
-	public boolean isAccountNonExpired() {
-		return accountNonExpired;
-	}
+    public Role getRole() {
+        return role;
+    }
 
-	/**
-	 * Verifica si la cuenta del usuario no está bloqueada. Implementación del
-	 * método de la interfaz UserDetails.
-	 * 
-	 * @return true si la cuenta no está bloqueada, false en caso contrario
-	 */
-	@Override
-	public boolean isAccountNonLocked() {
-		return accountNonLocked;
-	}
+    public void setRole(Role role) {
+        this.role = role;
+    }
 
-	/**
-	 * Verifica si las credenciales del usuario no han expirado. Implementación del
-	 * método de la interfaz UserDetails.
-	 * 
-	 * @return true si las credenciales no han expirado, false en caso contrario
-	 */
-	@Override
-	public boolean isCredentialsNonExpired() {
-		return credentialsNonExpired;
-	}
+    public void setAccountNonExpired(boolean accountNonExpired) {
+        this.accountNonExpired = accountNonExpired;
+    }
 
-	/**
-	 * Verifica si la cuenta del usuario está habilitada. Implementación del método
-	 * de la interfaz UserDetails.
-	 * 
-	 * @return true si la cuenta está habilitada, false en caso contrario
-	 */
-	@Override
-	public boolean isEnabled() {
-		return enabled;
-	}
+    public void setAccountNonLocked(boolean accountNonLocked) {
+        this.accountNonLocked = accountNonLocked;
+    }
 
-	/**
-	 * Obtiene el rol del usuario.
-	 * 
-	 * @return El rol asignado al usuario
-	 */
-	public Role getRole() {
-		return role;
-	}
+    public void setCredentialsNonExpired(boolean credentialsNonExpired) {
+        this.credentialsNonExpired = credentialsNonExpired;
+    }
 
-	/**
-	 * Establece el rol del usuario.
-	 * 
-	 * @param role El nuevo rol a asignar
-	 */
-	public void setRole(Role role) {
-		this.role = role;
-	}
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
-	/**
-	 * Establece si la cuenta del usuario ha expirado o no.
-	 * 
-	 * @param accountNonExpired true si la cuenta no ha expirado, false si ha
-	 *                          expirado
-	 */
-	public void setAccountNonExpired(boolean accountNonExpired) {
-		this.accountNonExpired = accountNonExpired;
-	}
+    public Long getId() {
+        return id;
+    }
 
-	/**
-	 * Establece si la cuenta del usuario está bloqueada o no.
-	 * 
-	 * @param accountNonLocked true si la cuenta no está bloqueada, false si está
-	 *                         bloqueada
-	 */
-	public void setAccountNonLocked(boolean accountNonLocked) {
-		this.accountNonLocked = accountNonLocked;
-	}
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-	/**
-	 * Establece si las credenciales del usuario han expirado o no.
-	 * 
-	 * @param credentialsNonExpired true si las credenciales no han expirado, false
-	 *                              si han expirado
-	 */
-	public void setCredentialsNonExpired(boolean credentialsNonExpired) {
-		this.credentialsNonExpired = credentialsNonExpired;
-	}
+    @Override
+    public String getUsername() {
+        return username;
+    }
 
-	/**
-	 * Establece si la cuenta del usuario está habilitada o no.
-	 * 
-	 * @param enabled true si la cuenta está habilitada, false si está deshabilitada
-	 */
-	public void setEnabled(boolean enabled) {
-		this.enabled = enabled;
-	}
+    public void setUsername(String username) {
+        this.username = username;
+    }
 
-	/**
-	 * Obtiene el identificador único del usuario.
-	 * 
-	 * @return El ID del usuario
-	 */
-	public Long getId() {
-		return id;
-	}
+    @Override
+    public String getPassword() {
+        return password;
+    }
 
-	/**
-	 * Establece el identificador único del usuario.
-	 * 
-	 * @param id El nuevo ID a asignar
-	 */
-	public void setId(Long id) {
-		this.id = id;
-	}
+    public void setPassword(String password) {
+        this.password = password;
+    }
 
-	/**
-	 * Obtiene el nombre de usuario. Implementación del método de la interfaz
-	 * UserDetails.
-	 * 
-	 * @return El nombre de usuario
-	 */
-	public String getUsername() {
-		return username;
-	}
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, password, username);
+    }
 
-	/**
-	 * Establece el nombre de usuario.
-	 * 
-	 * @param username El nuevo nombre de usuario
-	 */
-	public void setUsername(String username) {
-		this.username = username;
-	}
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        User other = (User) obj;
+        return Objects.equals(id, other.id) && Objects.equals(password, other.password)
+                && Objects.equals(username, other.username);
+    }
 
-	/**
-	 * Obtiene la contraseña del usuario. Implementación del método de la interfaz
-	 * UserDetails.
-	 * 
-	 * @return La contraseña del usuario
-	 */
-	public String getPassword() {
-		return password;
-	}
-
-	/**
-	 * Establece la contraseña del usuario.
-	 * 
-	 * @param password La nueva contraseña
-	 */
-	public void setPassword(String password) {
-		this.password = password;
-	}
-
-	/**
-	 * Calcula el código hash para este usuario. Se basa en los campos id, password
-	 * y username.
-	 * 
-	 * @return El código hash calculado
-	 */
-	@Override
-	public int hashCode() {
-		return Objects.hash(id, password, username);
-	}
-
-	/**
-	 * Compara este usuario con otro objeto para determinar si son iguales. Dos
-	 * usuarios son iguales si tienen el mismo id, password y username.
-	 * 
-	 * @param obj El objeto a comparar con este usuario
-	 * @return true si los objetos son iguales, false en caso contrario
-	 */
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		User other = (User) obj;
-		return Objects.equals(id, other.id) && Objects.equals(password, other.password)
-				&& Objects.equals(username, other.username);
-	}
-
-	/**
-	 * Devuelve una representación en cadena de texto de este usuario. Incluye el
-	 * id, username y password.
-	 * 
-	 * @return Una cadena que representa este usuario
-	 */
-	@Override
-	public String toString() {
-		return "User [id=" + id + ", username=" + username + ", password=" + password + "]";
-	}
-
+    @Override
+    public String toString() {
+        return "User [id=" + id + ", username=" + username + ", password=" + password + ", role=" + role + "]";
+    }
 }

@@ -5,7 +5,11 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -14,72 +18,56 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Filtro de autenticación JWT que intercepta las solicitudes HTTP. Valida los tokens JWT en las
- * solicitudes y establece la autenticación en el contexto de seguridad. Se ejecuta una vez por cada
- * solicitud.
+ * Filtro de autenticación JWT que intercepta las solicitudes HTTP. Valida los
+ * tokens JWT en las solicitudes y establece la autenticación en el contexto de
+ * seguridad.
  */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-  /** Utilidad para operaciones con tokens JWT. */
-  private final JwtUtil jwtUtil;
+	private final JwtUtil jwtUtil;
+	private final UserDetailsService userDetailsService;
 
-  /** Servicio para cargar los detalles del usuario. */
-  private final UserDetailsService userDetailsService;
+	public JwtAuthenticationFilter(JwtUtil jwtUtil, UserDetailsService userDetailsService) {
+		this.jwtUtil = jwtUtil;
+		this.userDetailsService = userDetailsService;
+	}
 
-  /**
-   * Constructor que inicializa las dependencias necesarias para el filtro.
-   *
-   * @param jwtUtil Utilidad para operaciones con tokens JWT
-   * @param userDetailsService Servicio para cargar los detalles del usuario
-   */
-  public JwtAuthenticationFilter(JwtUtil jwtUtil, UserDetailsService userDetailsService) {
-    this.jwtUtil = jwtUtil;
-    this.userDetailsService = userDetailsService;
-  }
+	@Override
+	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+			throws ServletException, IOException {
 
-  /**
-   * Método principal del filtro que se ejecuta para cada solicitud HTTP. Extrae y valida el token
-   * JWT del encabezado de autorización. Si el token es válido, establece la autenticación en el
-   * contexto de seguridad.
-   *
-   * @param request Solicitud HTTP entrante
-   * @param response Respuesta HTTP saliente
-   * @param filterChain Cadena de filtros para continuar el procesamiento
-   * @throws ServletException Si ocurre un error durante el procesamiento del servlet
-   * @throws IOException Si ocurre un error de entrada/salida
-   */
-  @Override
-  protected void doFilterInternal(
-      HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-      throws ServletException, IOException {
+		final String authorizationHeader = request.getHeader("Authorization");
+		String username = null;
+		String jwt = null;
 
-    final String authorizationHeader = request.getHeader("Authorization");
+		if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+			jwt = authorizationHeader.substring(7);
+			try {
+				username = jwtUtil.extractUsername(jwt);
+			} catch (Exception e) {
+				logger.error("Error al extraer el nombre de usuario del token", e);
+			}
+		}
 
-    String username = null;
-    String jwt = null;
+		if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+			UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+			if (jwtUtil.validateToken(jwt, userDetails)) {
+				// Extraer el rol del token
+				String role = jwtUtil.extractRole(jwt);
+				Collection<? extends GrantedAuthority> authorities = userDetails.getAuthorities();
+				if (role != null) {
+					// Asignar el rol como autoridad
+					authorities = Arrays.asList(new SimpleGrantedAuthority(role));
+				}
+				UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+						userDetails, null, authorities);
+				authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+				SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+			}
+		}
 
-    if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-      jwt = authorizationHeader.substring(7);
-      try {
-        username = jwtUtil.extractUsername(jwt);
-      } catch (Exception e) {
-        logger.error("Error extracting username from token", e);
-      }
-    }
+		filterChain.doFilter(request, response);
+	}
 
-    if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-      UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
-
-      if (jwtUtil.validateToken(jwt, userDetails)) {
-        UsernamePasswordAuthenticationToken authenticationToken =
-            new UsernamePasswordAuthenticationToken(
-                userDetails, null, userDetails.getAuthorities());
-        authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-        SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-      }
-    }
-
-    filterChain.doFilter(request, response);
-  }
 }
