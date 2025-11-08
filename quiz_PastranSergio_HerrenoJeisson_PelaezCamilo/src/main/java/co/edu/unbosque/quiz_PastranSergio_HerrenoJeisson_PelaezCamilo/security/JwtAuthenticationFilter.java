@@ -5,8 +5,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -18,56 +19,89 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Filtro de autenticación JWT que intercepta las solicitudes HTTP. Valida los
- * tokens JWT en las solicitudes y establece la autenticación en el contexto de
- * seguridad.
+ * Filtro JWT:
+ * - Lee el header Authorization: Bearer xxx
+ * - Valida el token
+ * - Si es válido, pone la autenticación en el SecurityContext con el rol correcto.
  */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-	private final JwtUtil jwtUtil;
-	private final UserDetailsService userDetailsService;
+    private final JwtUtil jwtUtil;
+    private final UserDetailsService userDetailsService;
 
-	public JwtAuthenticationFilter(JwtUtil jwtUtil, UserDetailsService userDetailsService) {
-		this.jwtUtil = jwtUtil;
-		this.userDetailsService = userDetailsService;
-	}
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserDetailsService userDetailsService) {
+        this.jwtUtil = jwtUtil;
+        this.userDetailsService = userDetailsService;
+    }
 
-	@Override
-	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-			throws ServletException, IOException {
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getServletPath();
+        return path.startsWith("/auth"); // /auth/** no necesitan verificación de token aquí
+    }
 
-		final String authorizationHeader = request.getHeader("Authorization");
-		String username = null;
-		String jwt = null;
+    @Override
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
 
-		if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-			jwt = authorizationHeader.substring(7);
-			try {
-				username = jwtUtil.extractUsername(jwt);
-			} catch (Exception e) {
-				logger.error("Error al extraer el nombre de usuario del token", e);
-			}
-		}
+        final String authHeader = request.getHeader("Authorization");
 
-		if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-			UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
-			if (jwtUtil.validateToken(jwt, userDetails)) {
-				// Extraer el rol del token
-				String role = jwtUtil.extractRole(jwt);
-				Collection<? extends GrantedAuthority> authorities = userDetails.getAuthorities();
-				if (role != null) {
-					// Asignar el rol como autoridad
-					authorities = Arrays.asList(new SimpleGrantedAuthority(role));
-				}
-				UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-						userDetails, null, authorities);
-				authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-				SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-			}
-		}
+        String username = null;
+        String jwt = null;
 
-		filterChain.doFilter(request, response);
-	}
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            jwt = authHeader.substring(7);
+            try {
+                username = jwtUtil.extractUsername(jwt);
+            } catch (Exception e) {
+                logger.error("Error al extraer username del token JWT", e);
+            }
+        }
 
+        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            try {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+
+                if (jwtUtil.validateToken(jwt, userDetails)) {
+                    String tokenRole = null;
+                    try {
+                        tokenRole = jwtUtil.extractRole(jwt);
+                    } catch (Exception e) {
+                        logger.warn("No se pudo extraer rol del token, usando roles de UserDetails");
+                    }
+
+                    Collection<? extends GrantedAuthority> authorities;
+
+                    if (tokenRole != null && !tokenRole.isBlank()) {
+                        String springRole = tokenRole.startsWith("ROLE_")
+                                ? tokenRole
+                                : "ROLE_" + tokenRole;
+                        authorities = List.of(new SimpleGrantedAuthority(springRole));
+                    } else {
+                        authorities = userDetails.getAuthorities();
+                    }
+
+                    UsernamePasswordAuthenticationToken authenticationToken =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    authorities
+                            );
+                    authenticationToken.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request)
+                    );
+
+                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                }
+            } catch (Exception e) {
+                logger.error("Error al autenticar usuario desde JWT", e);
+            }
+        }
+
+        filterChain.doFilter(request, response);
+    }
 }
