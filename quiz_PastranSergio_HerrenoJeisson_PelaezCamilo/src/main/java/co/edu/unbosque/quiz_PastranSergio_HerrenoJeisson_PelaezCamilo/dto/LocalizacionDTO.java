@@ -200,9 +200,7 @@ public class LocalizacionDTO {
 
 	@Override
 	public String toString() {
-		return "Localizacion:  Country =" + name + ", numeric_code=" + numeric_code + ", phone_code=" + phone_code
-				+ ", capital=" + capital + ", latitude=" + latitude + ", longitude=" + longitude + ", emoji=" + emoji
-				+ ", ip=" + ip;
+		return "Country =" + name + ", capital=" + capital + ", latitude=" + latitude + ", longitude=";
 	}
 
 }
